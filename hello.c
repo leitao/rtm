@@ -2,44 +2,52 @@
 #include<stdlib.h>
 #include<string.h>
 #include "immintrin.h"
+#include<unistd.h>
 
-#define MAX 5000
+#define MAX 50000
 
+// This function runs the a transaction as big as n, to see it
+// aborting due to CAPACITY issue.
+// If I do write to a different memory position, the CAPACITY
+// abort it never triggered.
 int depth(int n){
 	unsigned int stat; 
+	int *ptr = malloc(MAX*sizeof(int));
+	memset(ptr, 0, MAX); 
 
 	stat = _xbegin();
-	int i = 1;
 
 	if (stat == _XBEGIN_STARTED){
 		for (int z = 0 ; z <n ; z++)
-			i++;
+			ptr[z] = z;
 		_xend();
 	} else {
 		return stat;
 	} 
+
+	free(ptr);
+
 	return 0;
 }
 
 
 void dump_error(int ret){
-	char str[] = "";
-	char *string;
+	char str[1024] = "";
 	
 	if (ret & _XABORT_EXPLICIT)
-		string = strcat(str, "EXPLICT | ");	
+		strcat(str, "EXPLICT | ");	
 	if (ret & _XABORT_RETRY)
-		string = strcat(str, "RETRY | ");	
+		strcat(str, "RETRY | ");	
 	if (ret & _XABORT_CONFLICT)
-		string = strcat(str, "CONFLICT | ");	
+		strcat(str, "CONFLICT | ");	
 	if (ret & _XABORT_CAPACITY)
-		string = strcat(str, "CAPACITY | ");	
+		strcat(str, "CAPACITY | ");	
 	if (ret & _XABORT_DEBUG)
-		string = strcat(str, "DEBUG | ");	
+		strcat(str, "DEBUG | ");	
 	if (ret & _XABORT_NESTED)
-		string = strcat(str, "NESTED | ");	
+		strcat(str, "NESTED | ");	
 
-	printf("%s\n", string);
+	printf("%s\n", str);
 }
 
 int main(int argc, char **argv){
@@ -50,10 +58,14 @@ int main(int argc, char **argv){
 		if (!ret)
 			printf("%4d : Transaction executed\n", i);
 		else {
+			if (_xtest())
+				printf("Transaction is still active\n");
+
 			printf("%4d : Transaction failed with code: ", i);
 			dump_error(ret);
 			break;
 		}
+		usleep(400);
 	}
 
 	return 0;
